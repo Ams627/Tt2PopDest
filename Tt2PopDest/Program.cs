@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -47,14 +49,38 @@ namespace Tt2PopDest
             }
             return result;
         }
+
+        private static string Sha1File(string filename)
+        {
+
+            byte[] hash;
+            using (FileStream fs = new FileStream(filename, FileMode.Open))
+            using (BufferedStream bs = new BufferedStream(fs))
+            {
+                using (SHA1Managed sha1 = new SHA1Managed())
+                {
+                    hash = sha1.ComputeHash(bs);
+                }
+            }
+
+            StringBuilder formatted = new StringBuilder(2 * hash.Length);
+            foreach (byte b in hash)
+            {
+                formatted.AppendFormat("{0:X2}", b);
+            }
+            return formatted.ToString();
+        }
+
+        private static void CollectPrint()
+        {
+            GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+            GC.Collect();
+            var totalmemory = GC.GetTotalMemory(true);
+            Console.WriteLine($"total memory used is {totalmemory:n0}");
+        }
         private static void Main(string[] args)
         {
             var freqDict = new Dictionary<string, Dictionary<string, int>>();
-            //DictUtils.AddEntryToList(freqDict, "POO", "PKS");
-            //DictUtils.AddEntryToList(freqDict, "POO", "PKS");
-            //DictUtils.AddEntryToList(freqDict, "POO", "PKS");
-            //DictUtils.AddEntryToList(freqDict, "POO", "BSM");
-            //Environment.Exit(1);
             try
             {
                 var stationfilename = "w:\\StationsRefData.xml";
@@ -67,6 +93,8 @@ namespace Tt2PopDest
 
                 var startTime = DateTime.Now;
                 var filename = "s:\\ttisf772.mca";
+                var sum = Sha1File(filename);
+                Console.WriteLine($"Sha1 of {filename} is {sum}");
                 var count = 0;
                 var linenumber = 0;
                 bool isRecordInDate = false;
@@ -80,21 +108,7 @@ namespace Tt2PopDest
                     try
                     {
                         var recordType = line.Substring(0, 2);
-                        if (line.Length > 2 && recordType == "TI")
-                        {
-                            //// this is a tiploc insert record, so store the mapping from Tiploc to CRS:
-                            //var tiploc = line.Substring(2, 7);
-                            //var crs = line.Substring(53, 3);
-                            //if (crs.All(c => char.IsLetterOrDigit(c)))
-                            //{
-                            //    tiplocToCrs.Add(tiploc, crs);
-                            //    if (tiploc == "WATRLMN")
-                            //    {
-                            //        System.Diagnostics.Debug.WriteLine($"");
-                            //    }
-                            //}
-                        }
-                        else if (recordType == "BS")
+                        if (recordType == "BS")
                         {
                             // This is a basic schedule record:
                             var bs = new BSRecord(line);
@@ -155,6 +169,8 @@ namespace Tt2PopDest
                     }
                 }
                 Console.WriteLine($"Frequency dictionary size is {freqDict.Count}");
+                CollectPrint();
+                var sortedDict = freqDict.OrderBy(x => x.Value.FirstOrDefault().Value);
                 foreach (var entry in freqDict)
                 {
                     Console.WriteLine($"--- {entry.Key} ---");
